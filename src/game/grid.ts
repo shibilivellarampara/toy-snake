@@ -1,7 +1,10 @@
 import type { Dir, Point } from "../net/protocol";
 
-export const GRID_COLS = 30;
-export const GRID_ROWS = 18;
+// Portrait 9:16, since this is a phone-first game and the board is a
+// single authoritative shape shared by every player in a match (it can't
+// vary per client's own orientation without desyncing collision bounds).
+export const GRID_COLS = 18;
+export const GRID_ROWS = 32;
 
 export function cellKey(p: Point): string {
   return `${p.x},${p.y}`;
@@ -60,17 +63,17 @@ export function randomEmptyCell(occupied: Set<string>): Point | null {
   return null;
 }
 
-/** Fixed spawn layout for up to 8 players, spread around a 30x18 board so
- * starting bodies never overlap regardless of who joins. */
+/** Fixed spawn layout for up to 8 players, spread around the 18x32 board
+ * so starting bodies never overlap regardless of who joins. */
 export const SPAWN_TABLE: { start: Point; dir: Dir }[] = [
   { start: { x: 4, y: 4 }, dir: "right" },
-  { start: { x: 25, y: 13 }, dir: "left" },
-  { start: { x: 25, y: 4 }, dir: "left" },
-  { start: { x: 4, y: 13 }, dir: "right" },
-  { start: { x: 15, y: 3 }, dir: "down" },
-  { start: { x: 15, y: 14 }, dir: "up" },
-  { start: { x: 4, y: 9 }, dir: "right" },
-  { start: { x: 25, y: 9 }, dir: "left" },
+  { start: { x: 13, y: 27 }, dir: "left" },
+  { start: { x: 13, y: 4 }, dir: "left" },
+  { start: { x: 4, y: 27 }, dir: "right" },
+  { start: { x: 9, y: 3 }, dir: "down" },
+  { start: { x: 9, y: 28 }, dir: "up" },
+  { start: { x: 4, y: 15 }, dir: "right" },
+  { start: { x: 13, y: 15 }, dir: "left" },
 ];
 
 export function spawnSegments(start: Point, dir: Dir): Point[] {

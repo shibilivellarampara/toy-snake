@@ -430,7 +430,8 @@ body {
 
 .touch-dpad {
   position: fixed;
-  right: 20px;
+  left: 50%;
+  transform: translateX(-50%);
   bottom: max(20px, env(safe-area-inset-bottom));
   width: 176px;
   height: 176px;
