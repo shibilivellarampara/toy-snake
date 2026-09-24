@@ -198,25 +198,27 @@ export function drawSnake(ctx: CanvasRenderingContext2D, rs: RenderSnake, layout
   ctx.restore();
 
   // Name/score label above the head, always fully opaque so a dead snake's
-  // tag stays legible. Nudged up further when a crown needs the room.
+  // tag stays legible.
   ctx.save();
   ctx.font = `${Math.max(10, cs * 0.5)}px system-ui, sans-serif`;
   ctx.textAlign = "center";
   ctx.fillStyle = rs.isLocal ? "#fde68a" : "rgba(255,255,255,0.92)";
-  const labelClearance = bodyR * 1.6 + (rs.accessory === "crown" ? bodyR * 0.5 : 0) + 4;
-  ctx.fillText(`${rs.label} · ${rs.score}`, head.x, head.y - labelClearance);
+  ctx.fillText(`${rs.label} · ${rs.score}`, head.x, head.y - bodyR * 1.6 - 4);
   ctx.restore();
 }
 
-/** Fixed screen-space offset from the head, deliberately not rotated with
- * travel direction — this is a top-down view of a circular head, so there's
- * no real "top" to pin a hat to; a steady on-screen position reads cleaner
- * than one that spins every time the snake turns. */
+/** A fixed screen-space position on the head, deliberately NOT rotated by
+ * travel direction: rotating the artwork itself by heading looked fine
+ * moving right/left but turned the crown on its side ("perpendicular")
+ * whenever the snake faced up or down, since a crown's spikes have no
+ * inherent "forward" to align with a top-down view's direction of travel.
+ * Anchored snugly against the head (slight overlap) so it reads as worn
+ * rather than floating above it. */
 function drawAccessory(ctx: CanvasRenderingContext2D, accessory: Accessory | undefined, head: Point, bodyR: number) {
   if (!accessory || accessory === "none") return;
   ctx.save();
   if (accessory === "crown") {
-    ctx.translate(head.x, head.y - bodyR * 1.05);
+    ctx.translate(head.x, head.y - bodyR * 0.85);
     const w = bodyR * 1.3;
     const h = bodyR * 0.75;
     ctx.fillStyle = "#facc15";
@@ -238,7 +240,7 @@ function drawAccessory(ctx: CanvasRenderingContext2D, accessory: Accessory | und
     ctx.arc(0, -h * 0.32, bodyR * 0.14, 0, Math.PI * 2);
     ctx.fill();
   } else if (accessory === "clip") {
-    ctx.translate(head.x + bodyR * 0.55, head.y - bodyR * 0.55);
+    ctx.translate(head.x + bodyR * 0.5, head.y - bodyR * 0.5);
     ctx.rotate(-0.5);
     const s = bodyR * 0.5;
     ctx.fillStyle = "#f472b6";
