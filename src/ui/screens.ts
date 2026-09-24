@@ -7,7 +7,7 @@ import { computeBoardLayout, drawBoard, drawDeathEffects, drawFood, drawSnake } 
 import type { RenderSnake } from "../game/renderer";
 import { GRID_COLS, GRID_ROWS } from "../game/grid";
 import { PLAYER_COLORS, randomPlayerId } from "../net/protocol";
-import type { PlayerInfo } from "../net/protocol";
+import type { Accessory, PlayerInfo } from "../net/protocol";
 import { HostLobby, GuestLobby } from "../net/lobby";
 import { renderQR, startQRScan } from "../net/qr";
 import type { QRScanner } from "../net/qr";
@@ -19,16 +19,17 @@ interface Profile {
   color: string;
   muted: boolean;
   botCount: number;
+  accessory: Accessory;
 }
 
 function loadProfile(): Profile {
   try {
     const raw = localStorage.getItem(PROFILE_KEY);
-    if (raw) return { muted: false, botCount: 3, ...JSON.parse(raw) };
+    if (raw) return { muted: false, botCount: 3, accessory: "none", ...JSON.parse(raw) };
   } catch {
     /* ignore */
   }
-  return { name: "Player", color: PLAYER_COLORS[3], muted: false, botCount: 3 };
+  return { name: "Player", color: PLAYER_COLORS[3], muted: false, botCount: 3, accessory: "none" };
 }
 
 function saveProfile(p: Profile) {
@@ -196,6 +197,25 @@ export class App {
       muteBtn.textContent = this.profile.muted ? "🔇 Off" : "🔊 On";
     });
 
+    const ACCESSORY_OPTIONS: { value: Accessory; label: string }[] = [
+      { value: "none", label: "None" },
+      { value: "crown", label: "👑 Crown" },
+      { value: "clip", label: "🎀 Clip" },
+    ];
+    const accessoryRow = h("div", "color-swatches");
+    const renderAccessoryRow = () => {
+      accessoryRow.replaceChildren(
+        ...ACCESSORY_OPTIONS.map((opt) =>
+          button(opt.label, `chip-btn${opt.value === this.profile.accessory ? " selected" : ""}`, () => {
+            this.profile.accessory = opt.value;
+            saveProfile(this.profile);
+            renderAccessoryRow();
+          }),
+        ),
+      );
+    };
+    renderAccessoryRow();
+
     const screen = h(
       "div",
       "screen menu-screen",
@@ -207,6 +227,7 @@ export class App {
       ),
       h("label", "field-label", "Name", nameInput),
       h("label", "field-label", "Color", swatches),
+      h("label", "field-label", "Accessory", accessoryRow),
       h("div", "field-label", "Sound", muteBtn),
       h(
         "div",
@@ -218,7 +239,7 @@ export class App {
       h(
         "p",
         "hint",
-        "Bluetooth can't run inside an installed web app on iPhone, so nearby multiplayer works over a shared Wi-Fi/hotspot instead — the host shares a 4-digit code (or QR), everyone else enters it with Join. Last snake slithering wins.",
+        "Bluetooth can't run inside an installed web app on iPhone, so nearby multiplayer works over a shared Wi-Fi/hotspot instead — the host shares a 4-digit code (or QR), everyone else enters it with Join. Highest score when the board clears wins.",
       ),
       h("p", "credit-line", "Developed by Shibil"),
     );
@@ -226,7 +247,13 @@ export class App {
   }
 
   private localPlayerInfo(slot: number): PlayerInfo {
-    return { id: randomPlayerId(), name: this.profile.name, color: this.profile.color, slot };
+    return {
+      id: randomPlayerId(),
+      name: this.profile.name,
+      color: this.profile.color,
+      slot,
+      accessory: this.profile.accessory,
+    };
   }
 
   // ---------------------------------------------------------- Host lobby --
@@ -379,6 +406,7 @@ export class App {
         name: `CPU ${i + 1}`,
         color: PLAYER_COLORS[(i + 1) % PLAYER_COLORS.length],
         slot: i + 1,
+        accessory: "none",
         isAI: true,
       });
     }
@@ -394,7 +422,7 @@ export class App {
   // ---------------------------------------------------------- Join lobby --
 
   private showJoinLobby(prefillCode?: string) {
-    const guestLobby = new GuestLobby(this.profile.name, this.profile.color);
+    const guestLobby = new GuestLobby(this.profile.name, this.profile.color, this.profile.accessory);
 
     const statusEl = h("p", "status-text", "Ask your host for their 4-digit code.");
     const rosterEl = h("div", "roster-list");
@@ -625,6 +653,7 @@ export class App {
         alive: s.alive,
         dir: s.dir,
         score: s.score,
+        accessory: info?.accessory,
       };
     });
     for (const rs of renderSnakes) drawSnake(ctx, rs, layout);

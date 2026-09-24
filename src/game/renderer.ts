@@ -1,4 +1,4 @@
-import type { Dir, Point } from "../net/protocol";
+import type { Accessory, Dir, Point } from "../net/protocol";
 import type { DeathEvent } from "./session";
 
 export interface RenderSnake {
@@ -11,6 +11,7 @@ export interface RenderSnake {
   alive: boolean;
   dir: Dir;
   score: number;
+  accessory?: Accessory;
 }
 
 export interface BoardLayout {
@@ -110,9 +111,30 @@ export function drawFood(ctx: CanvasRenderingContext2D, food: Point[], layout: B
   }
 }
 
+/** Perpendicular sine wave along the body, amplitude tapering to zero at
+ * the head so the head itself stays put on the grid path while everything
+ * behind it slithers — a frozen (dead) snake gets no wave at all. */
+function slitherPoints(pts: Point[], cellSize: number, alive: boolean): Point[] {
+  if (!alive || pts.length < 2) return pts;
+  const t = performance.now() / 1000;
+  return pts.map((p, i) => {
+    const prev = pts[Math.max(0, i - 1)];
+    const next = pts[Math.min(pts.length - 1, i + 1)];
+    const tx = next.x - prev.x;
+    const ty = next.y - prev.y;
+    const tlen = Math.hypot(tx, ty) || 1;
+    const nx = -ty / tlen;
+    const ny = tx / tlen;
+    const amp = Math.min(1, i / 2) * cellSize * 0.16;
+    const wave = Math.sin(t * 6 - i * 1.1) * amp;
+    return { x: p.x + nx * wave, y: p.y + ny * wave };
+  });
+}
+
 export function drawSnake(ctx: CanvasRenderingContext2D, rs: RenderSnake, layout: BoardLayout) {
   const cs = layout.cellSize;
   const pts = rs.segments.map((p) => cellCenter(layout, p));
+  const wavyPts = slitherPoints(pts, cs, rs.alive);
   const bodyR = cs * 0.42;
   const alpha = rs.alive ? 1 : 0.45;
 
@@ -122,27 +144,29 @@ export function drawSnake(ctx: CanvasRenderingContext2D, rs: RenderSnake, layout
   // Body: a rounded "tube" traced through every segment center, drawn
   // beneath the per-segment scale highlights so joints look continuous
   // instead of a row of separate circles.
-  if (pts.length > 1) {
+  if (wavyPts.length > 1) {
     ctx.strokeStyle = rs.color;
     ctx.lineWidth = bodyR * 2;
     ctx.lineJoin = "round";
     ctx.lineCap = "round";
     ctx.beginPath();
-    ctx.moveTo(pts[0].x, pts[0].y);
-    for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+    ctx.moveTo(wavyPts[0].x, wavyPts[0].y);
+    for (let i = 1; i < wavyPts.length; i++) ctx.lineTo(wavyPts[i].x, wavyPts[i].y);
     ctx.stroke();
   }
 
   // Subtle scale bands along the body for a "toy" texture.
   ctx.strokeStyle = "rgba(0,0,0,0.15)";
   ctx.lineWidth = 1.5;
-  for (let i = 1; i < pts.length; i++) {
+  for (let i = 1; i < wavyPts.length; i++) {
     ctx.beginPath();
-    ctx.arc(pts[i].x, pts[i].y, bodyR * 0.55, 0, Math.PI * 2);
+    ctx.arc(wavyPts[i].x, wavyPts[i].y, bodyR * 0.55, 0, Math.PI * 2);
     ctx.stroke();
   }
 
-  // Head, drawn last so it sits on top of the neck segment.
+  // Head, drawn last so it sits on top of the neck segment. Anchored at the
+  // un-waved grid position (matches wavyPts[0], since amplitude is zero at
+  // i=0) so eyes/label/accessory never jitter.
   const head = pts[0];
   ctx.fillStyle = rs.color;
   ctx.beginPath();
@@ -169,15 +193,68 @@ export function drawSnake(ctx: CanvasRenderingContext2D, rs: RenderSnake, layout
     ctx.fill();
   }
 
+  drawAccessory(ctx, rs.accessory, head, bodyR);
+
   ctx.restore();
 
   // Name/score label above the head, always fully opaque so a dead snake's
-  // tag stays legible.
+  // tag stays legible. Nudged up further when a crown needs the room.
   ctx.save();
   ctx.font = `${Math.max(10, cs * 0.5)}px system-ui, sans-serif`;
   ctx.textAlign = "center";
   ctx.fillStyle = rs.isLocal ? "#fde68a" : "rgba(255,255,255,0.92)";
-  ctx.fillText(`${rs.label} · ${rs.score}`, head.x, head.y - bodyR * 1.6 - 4);
+  const labelClearance = bodyR * 1.6 + (rs.accessory === "crown" ? bodyR * 0.5 : 0) + 4;
+  ctx.fillText(`${rs.label} · ${rs.score}`, head.x, head.y - labelClearance);
+  ctx.restore();
+}
+
+/** Fixed screen-space offset from the head, deliberately not rotated with
+ * travel direction — this is a top-down view of a circular head, so there's
+ * no real "top" to pin a hat to; a steady on-screen position reads cleaner
+ * than one that spins every time the snake turns. */
+function drawAccessory(ctx: CanvasRenderingContext2D, accessory: Accessory | undefined, head: Point, bodyR: number) {
+  if (!accessory || accessory === "none") return;
+  ctx.save();
+  if (accessory === "crown") {
+    ctx.translate(head.x, head.y - bodyR * 1.05);
+    const w = bodyR * 1.3;
+    const h = bodyR * 0.75;
+    ctx.fillStyle = "#facc15";
+    ctx.beginPath();
+    ctx.moveTo(-w / 2, h * 0.3);
+    ctx.lineTo(-w / 2, -h * 0.1);
+    ctx.lineTo(-w / 4, h * 0.15);
+    ctx.lineTo(0, -h * 0.55);
+    ctx.lineTo(w / 4, h * 0.15);
+    ctx.lineTo(w / 2, -h * 0.1);
+    ctx.lineTo(w / 2, h * 0.3);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = "rgba(120,80,10,0.6)";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.fillStyle = "#ef4444";
+    ctx.beginPath();
+    ctx.arc(0, -h * 0.32, bodyR * 0.14, 0, Math.PI * 2);
+    ctx.fill();
+  } else if (accessory === "clip") {
+    ctx.translate(head.x + bodyR * 0.55, head.y - bodyR * 0.55);
+    ctx.rotate(-0.5);
+    const s = bodyR * 0.5;
+    ctx.fillStyle = "#f472b6";
+    for (const side of [-1, 1] as const) {
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(side * s, -s * 0.65);
+      ctx.lineTo(side * s, s * 0.65);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.fillStyle = "#db2777";
+    ctx.beginPath();
+    ctx.arc(0, 0, s * 0.32, 0, Math.PI * 2);
+    ctx.fill();
+  }
   ctx.restore();
 }
 

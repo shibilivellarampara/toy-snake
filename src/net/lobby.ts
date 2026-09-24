@@ -6,7 +6,7 @@ import {
 } from "./webrtc";
 import type { PeerLink } from "./webrtc";
 import { PLAYER_COLORS, randomPlayerId } from "./protocol";
-import type { NetMessage, PlayerInfo } from "./protocol";
+import type { Accessory, NetMessage, PlayerInfo } from "./protocol";
 import { randomRoomCode, relayDelete, relayGet, relayPut, sleep } from "./relay";
 
 interface QRPayload {
@@ -116,6 +116,7 @@ export class HostLobby {
             name: msg.player.name || `Player ${slot + 1}`,
             color,
             slot,
+            accessory: msg.player.accessory,
           };
           resolvedId = info.id;
           this.links.set(info.id, link);
@@ -181,8 +182,8 @@ export class GuestLobby {
   private rosterListeners: Listener<PlayerInfo[]>[] = [];
   private messageListeners: Listener<NetMessage>[] = [];
 
-  constructor(name: string, preferredColor: string) {
-    this.localPlayer = { id: randomPlayerId(), name, color: preferredColor, slot: -1 };
+  constructor(name: string, preferredColor: string, accessory: Accessory) {
+    this.localPlayer = { id: randomPlayerId(), name, color: preferredColor, slot: -1, accessory };
   }
 
   onRosterChange(fn: Listener<PlayerInfo[]>) {

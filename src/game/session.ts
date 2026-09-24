@@ -317,10 +317,14 @@ export class GameSession {
       alive: s.alive,
       deathTick: s.deathTick,
     }));
+    // Score decides the ranking, full stop — surviving longest is only a
+    // tiebreaker for equal scores, not an outright win. (An earlier version
+    // ranked the last snake alive as #1 regardless of score, which put a
+    // low-scoring survivor above a higher-scoring snake that died earlier.)
     entries.sort((a, b) => {
+      if (a.score !== b.score) return b.score - a.score;
       if (a.alive !== b.alive) return a.alive ? -1 : 1;
-      if (a.deathTick !== b.deathTick) return b.deathTick - a.deathTick;
-      return b.score - a.score;
+      return b.deathTick - a.deathTick;
     });
     return entries.map((e, i) => ({ id: e.id, name: e.name, place: i + 1, score: e.score, isLocal: e.id === this.localId }));
   }

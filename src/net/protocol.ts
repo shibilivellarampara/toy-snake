@@ -5,11 +5,14 @@ export interface Point {
   y: number;
 }
 
+export type Accessory = "none" | "crown" | "clip";
+
 export interface PlayerInfo {
   id: string;
   name: string;
   color: string;
   slot: number;
+  accessory: Accessory;
   /** Locally simulated by the host as a bot rather than driven by a real connection. */
   isAI?: boolean;
 }

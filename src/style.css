@@ -249,6 +249,11 @@ body {
   cursor: pointer;
   align-self: center;
 }
+.chip-btn.selected {
+  border-color: var(--accent);
+  color: var(--text);
+  background: rgba(34, 197, 94, 0.18);
+}
 
 .stepper {
   display: flex;
